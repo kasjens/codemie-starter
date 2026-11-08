@@ -15,6 +15,9 @@ setup: ## Configure the active CodeMie profile
 doctor: ## Re-run the CodeMie health check
 	codemie doctor
 
+task: ## Run a one-off task via the Claude agent (anthropic-subscription). Usage: make task T="..."
+	codemie-claude --task "$(T)"
+
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
 		awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-10s\033[0m %s\n", $$1, $$2}'

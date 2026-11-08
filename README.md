@@ -18,6 +18,20 @@ Then configure your profile:
 codemie setup
 ```
 
+## Running tasks
+
+Which command runs a task depends on the **provider** you picked in `codemie setup`:
+
+| Provider | Run tasks with |
+| --- | --- |
+| `anthropic-subscription` (native Claude login) | `codemie-claude --task "..."` or `codemie-claude` |
+| `litellm` / `bedrock` / `ollama` / `ai-run-sso` / `bearer-auth` | `codemie --task "..."` |
+
+> ⚠️ The bare `codemie --task` runner does **not** support
+> `anthropic-subscription`. If you set up that provider and run `codemie --task`,
+> you'll see *"Supported providers: litellm, ai-run-sso, ollama, bedrock,
+> bearer-auth"* — use `codemie-claude` instead.
+
 ## Options
 
 | Command | What it does |
