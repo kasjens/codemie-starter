@@ -1,6 +1,7 @@
 # Using CodeMie frameworks as MCP extensions in goose
 
-CodeMie and [goose](https://github.com/block/goose) are two separate agent
+CodeMie and [goose](https://goose-docs.ai/) (AAIF — Agentic AI Foundation) are
+two separate agent
 runtimes — goose is **not** a CodeMie-managed agent (`codemie install` doesn't
 list it). But both speak **MCP (Model Context Protocol)**, so the code-intelligence
 servers CodeMie installs as "frameworks" can be consumed by goose too. Build the
