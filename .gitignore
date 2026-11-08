@@ -2,6 +2,10 @@
 .codemie/
 *.log
 
+# Code-intelligence graph artifacts (Graphify / CodeGraph)
+graphify-out/
+.codegraph/
+
 # Node
 node_modules/
 npm-debug.log*

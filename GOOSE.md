@@ -29,34 +29,55 @@ So the same server can back both agents. There are two ways to wire it.
 
 ## Route A — point goose at the same server package (simplest) ✅ verified
 
-> **Verified on 2026-11-08** with CodeGraph 1.6.2, goose 1.53.0 (AAIF). goose
-> connected to the server and enumerated the tool as
-> `mcp__codegraph__codegraph_explore`.
+> **Verified on 2026-11-08** with Graphify 0.9.104 and goose 1.53.0 (AAIF). goose
+> connected to the server and enumerated all 10 tools, namespaced
+> `mcp__graphify__*` (`query_graph`, `get_node`, `get_neighbors`, `get_community`,
+> `god_nodes`, `graph_stats`, `shortest_path`, `list_prs`, `get_pr_impact`,
+> `triage_prs`).
 
 MCP is a standard, so goose can spawn the exact server CodeMie installs. Install
-it once via CodeMie (wires it into Claude / `codemie-claude`):
+it once via CodeMie (also installs the Graphify skill into Claude Code):
 
 ```bash
-codemie install codegraph
+codemie install graphify
 ```
 
-This puts `codegraph` on your PATH (`~/.local/bin/codegraph`). The MCP server is
-launched as **`codegraph serve --mcp`** (stdio) — confirmed via
-`codegraph install --print-config claude`, which every agent integration uses.
+This installs two binaries on your PATH:
 
-Then add the **same** server to goose as a stdio extension. Edit
-`~/.config/goose/config.yaml` under the top-level `extensions:` map:
+- **`graphify`** — the CLI (build/query/merge the graph: `path`, `explain`,
+  `diagnose`, `clone`, `merge-graphs`, …).
+- **`graphify-mcp`** — the MCP server (`python -m graphify.serve`). It serves a
+  `graph.json` over **stdio *or* Streamable HTTP** (`--transport {stdio,http}`).
+
+> ⚠️ **Fix the missing MCP dependency first.** Graphify installs into a pipx venv
+> (`graphifyy`) that ships **without** the `mcp` Python package, so `graphify-mcp`
+> crashes with `ModuleNotFoundError: No module named 'mcp'`. Inject it once:
+>
+> ```bash
+> pipx inject graphifyy mcp
+> ```
+
+### Build the graph
+
+Unlike CodeGraph (which auto-indexes with `codegraph init`), Graphify builds a
+**`graphify-out/graph.json`** artifact — an agent-driven extraction run via the
+`/graphify` Claude Code skill or `codemie docs init graphify`. The MCP server
+simply *serves* that file (default path `graphify-out/graph.json`; override with a
+positional arg or `--graph PATH`). It starts fine with no graph yet and just
+serves an empty one.
+
+### Wire it into goose (stdio)
+
+Edit `~/.config/goose/config.yaml` under the top-level `extensions:` map:
 
 ```yaml
-  codegraph:
+  graphify:
     enabled: true
     type: stdio
-    name: codegraph
-    description: Local-first code intelligence graph (shared with codemie-claude)
-    cmd: codegraph
-    args:
-    - serve
-    - --mcp
+    name: graphify
+    description: Queryable knowledge graph over code/docs (shared with codemie-claude)
+    cmd: graphify-mcp
+    args: []          # defaults to ./graphify-out/graph.json in goose's cwd
     envs: {}
     env_keys: []
     timeout: 300
@@ -65,18 +86,44 @@ Then add the **same** server to goose as a stdio extension. Edit
 ```
 
 (The block mirrors the existing `bravesearch` stdio extension already in that
-file — copy its shape if in doubt.) Or add it interactively with
-`goose configure` → *Add Extension* → *Command-line Extension*.
+file.) Or add it interactively with `goose configure` → *Add Extension* →
+*Command-line Extension*. Run goose from a repo whose `graphify-out/graph.json`
+you've built, so the tools return real data.
 
-> If you prefer not to rely on CodeMie's global install, use
-> `cmd: npx` with `args: ['-y', '@colbymchenry/codegraph', 'serve', '--mcp']`.
+### Bonus: the HTTP transport (one shared instance)
 
-**Result:** one on-disk index, queried by both agents. goose exposes the tools
-namespaced as `mcp__codegraph__*`. The server is **per-directory** — it reads the
-`.codegraph/` index in goose's working directory, so run goose from a repo you've
-indexed with `codegraph init` (only `codegraph_explore` is exposed until an index
-exists).
-**Trade-off:** each agent spawns its *own* server process over that index.
+Because `graphify-mcp` also speaks **Streamable HTTP**, you can run *one* server
+and point both agents at it — closer to the "shared instance" ideal than stdio
+(where each agent spawns its own process):
+
+```bash
+graphify-mcp --transport http --host 127.0.0.1 --port 8080 \
+  --path /mcp --api-key "$GRAPHIFY_API_KEY"
+```
+
+Then in goose use a **remote** extension instead of stdio:
+
+```yaml
+  graphify_http:
+    enabled: true
+    type: streamable_http
+    name: graphify_http
+    uri: http://127.0.0.1:8080/mcp
+    envs: {}
+    timeout: 300
+```
+
+**Result:** both agents query the same knowledge graph. goose exposes the tools
+namespaced as `mcp__graphify__*`.
+**Trade-off (stdio):** each agent spawns its own server process over the same
+`graph.json`. The HTTP transport avoids that at the cost of running a daemon.
+
+> **Alternative: CodeGraph** (stdio-only, auto-indexing). `codemie install
+> codegraph` puts `codegraph` on PATH; its MCP server is `codegraph serve --mcp`
+> (confirmed via `codegraph install --print-config claude`). goose block:
+> `cmd: codegraph`, `args: ['serve', '--mcp']`. It reads a per-directory
+> `.codegraph/` index built with `codegraph init`, and exposes `mcp__codegraph__*`
+> tools. Pick CodeGraph *or* Graphify — not both (see below).
 
 ---
 
@@ -147,14 +194,21 @@ goose to share. For a purely local code graph on one machine, use **Route A**.
 
 CodeGraph, Codebase Memory MCP, and Graphify solve the same problem (a queryable
 map of your codebase). Install **one**; running several is redundant and just
-burns indexing time and context. CodeGraph is the simplest starting point for
-Route A; Codebase Memory adds the `codemie codebase ui` visualizer.
+burns indexing time and context. Quick contrast:
+
+| | Graphify (worked example) | CodeGraph | Codebase Memory |
+| --- | --- | --- | --- |
+| MCP server | `graphify-mcp` | `codegraph serve --mcp` | via `codemie codebase` |
+| Transport | **stdio + HTTP** | stdio only | — |
+| Build step | agent-driven `graph.json` (`/graphify` skill) | auto `codegraph init` | — |
+| Extra | — | — | `codemie codebase ui` 3D viewer |
 
 ## Resolved / remaining unknowns
 
-1. **CodeGraph's MCP command — resolved.** It is `codegraph serve --mcp` (stdio),
-   confirmed via `codegraph install --print-config <agent>`. Route A is verified
-   end-to-end (see the ✅ note above).
+1. **Graphify's MCP command — resolved & verified.** It is `graphify-mcp` (serves
+   `graphify-out/graph.json` over stdio or HTTP). Requires `pipx inject graphifyy
+   mcp` to fix a missing dependency. Verified end-to-end — see the ✅ note above.
+   (CodeGraph's equivalent is `codegraph serve --mcp`, also verified earlier.)
 2. **Route B is SSO-gated.** `codemie-mcp-proxy`'s managed MCP pulls a server
    catalog from `${apiUrl}/v1/mcp/managed-servers` and is inert without an
    `ai-run-sso` login — so Route B can't be validated on an `anthropic-subscription`
@@ -163,12 +217,13 @@ Route A; Codebase Memory adds the `codemie codebase ui` visualizer.
 
 ## Verifying it works
 
-Confirm the tool is present without spending much — ask goose to list its
-codegraph tools (headless, from an indexed repo):
+Confirm the tools are present without spending much — ask goose to list them
+(headless):
 
 ```bash
-goose run --no-session -t "List your tools whose names start with 'codegraph'. Then stop."
-# → mcp__codegraph__codegraph_explore
+goose run --no-session --model sonnet \
+  -t "List the exact names of your tools from the 'graphify' server. Then stop."
+# → mcp__graphify__query_graph, mcp__graphify__get_node, … (10 tools)
 ```
 
 If the extension failed to load, goose logs it under
@@ -178,7 +233,7 @@ If the extension failed to load, goose logs it under
 > `claude-acp` and its model is set to a bare alias like `opus`, every turn fails
 > with *"Invalid value for config option model: opus"* — before any tool runs.
 > Use a full/valid id (`sonnet`, `default`, or `claude-sonnet-4-6` worked). This
-> is a goose provider-config issue, unrelated to the codegraph extension itself.
+> is a goose provider-config issue, unrelated to the graph extension itself.
 
 ## Complementary roles (why bother)
 
