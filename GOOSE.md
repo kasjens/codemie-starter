@@ -268,6 +268,49 @@ If the extension failed to load, goose logs it under
 > Use a full/valid id (`sonnet`, `default`, or `claude-sonnet-4-6` worked). This
 > is a goose provider-config issue, unrelated to the graph extension itself.
 
+## Sharing skills, not just MCP servers ✅
+
+The same idea extends to **skills** (`SKILL.md` + resources) — and it's simpler,
+because a skill is *files*, not a running process. Each agent loads skills from
+its own search paths; you "share" by putting one `SKILL.md` where both look.
+
+Search paths (from each tool's own behavior):
+
+- **goose** — `~/.agents/plugins/*/skills/`, `~/.agents/skills/` (global), and
+  `.agents/skills/` (per project). `goose skills list` shows what it found and
+  from where.
+- **Claude Code / codemie-claude** — `~/.claude/skills/` (plus per-project
+  `.claude/skills/`).
+
+`~/.agents/skills/` is a **cross-agent convention** — which is why Graphify's
+installer offers an `agents` platform target next to `claude`, `codex`, `gemini`,
+… (`graphify install --platform agents`): install a skill once to the shared
+location and every honoring agent (goose natively) picks it up. Claude reads its
+own `~/.claude/skills/`, so bridge the two with a symlink or a sync (the git-based
+`~/.agents/skills` sync pattern).
+
+**Verified demo** (one `SKILL.md`, two agents):
+
+```bash
+# one real skill, read by goose directly; symlinked into Claude's path
+.agents/skills/shared-skill-demo/SKILL.md
+.claude/skills/shared-skill-demo  ->  ../../.agents/skills/shared-skill-demo
+
+goose skills list                    # → shared-skill-demo @ .agents/skills/...
+goose run -t "use shared-skill-demo" # → Launching skill → SHARED-SKILL-OK-7Q
+codemie-claude --task "use shared-skill-demo"  # → SHARED-SKILL-OK-7Q (same file)
+```
+
+**MCP vs skills, side by side:**
+
+| | MCP server | Skill |
+| --- | --- | --- |
+| Unit | a running process | `SKILL.md` + files |
+| Shared via | both clients dial one server | same file on each agent's skill path |
+| goose source | stdio/HTTP extension | `~/.agents/skills/` (native) |
+| Claude source | `~/.claude.json` MCP entry | `~/.claude/skills/` |
+| CodeMie-governed form | managed-MCP catalog (`ai-run-sso`) | managed `codemieSkills` |
+
 ## Complementary roles (why bother)
 
 - **goose** — local-first, long autonomous runs, recipes, headless/CI automation.
