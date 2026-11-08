@@ -19,7 +19,15 @@ for arg in "$@"; do
     --check)     CHECK_ONLY=1 ;;
     --no-agents) SKIP_AGENTS=1 ;;
     -h|--help)
-      grep '^#' "$0" | sed 's/^#\s\?//' | sed '1d'
+      cat <<'USAGE'
+CodeMie quick install — installs the CodeMie CLI and brings every
+supported agent up to its minimum version in one shot.
+
+Usage:
+  ./install.sh              install + upgrade supported agents
+  ./install.sh --check      health check only, change nothing
+  ./install.sh --no-agents  install CLI only, skip agent upgrades
+USAGE
       exit 0 ;;
     *) echo "unknown option: $arg" >&2; exit 2 ;;
   esac
