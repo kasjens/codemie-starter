@@ -1,0 +1,12 @@
+# CodeMie local state
+.codemie/
+*.log
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
