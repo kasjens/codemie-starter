@@ -125,6 +125,39 @@ namespaced as `mcp__graphify__*`.
 > `.codegraph/` index built with `codegraph init`, and exposes `mcp__codegraph__*`
 > tools. Pick CodeGraph *or* Graphify — not both (see below).
 
+### Worked demo — both agents, one graph ✅
+
+End-to-end proof that `codemie-claude` **and** goose read the *same* graph.
+Run from the target repo:
+
+```bash
+# 1. Build the graph — AST only, no LLM, no tokens
+graphify update .
+#    → Rebuilt: 366 nodes, 403 edges, 22 communities → graphify-out/graph.json
+
+# 2. goose queries it (stdio extension, cwd = this repo)
+goose run --no-session --model sonnet \
+  -t "Use graphify graph_stats and god_nodes; report counts and top hubs."
+#    → 366 nodes, 403 edges, 22 communities; top hub "Agents, function groups and config"
+
+# 3. Register the SAME server for Claude (absolute graph path, cwd-independent)
+claude mcp add --scope user graphify -- graphify-mcp "$PWD/graphify-out/graph.json"
+#    pre-allow the tools so headless runs don't block on permission prompts:
+#    add "mcp__graphify" to permissions.allow in ~/.claude/settings.json
+
+# 4. codemie-claude queries it
+codemie-claude --task "Use graphify graph_stats and god_nodes; report counts and top hubs."
+#    → 366 nodes, 403 edges, 22 communities; same top hub — identical to goose
+```
+
+Both agents resolve `mcp__graphify__*` against one `graph.json`. Rebuild once
+(`graphify update .` or `graphify watch .`), and both see the update.
+
+> **Why `--scope user` + an allow-list for codemie-claude?** A project-scoped
+> `.mcp.json` triggers an approval prompt that a headless `--task` run can't
+> answer; a user-scoped server plus `permissions.allow: ["mcp__graphify"]` lets
+> the tools run unattended.
+
 ---
 
 ## Route B — share a platform-governed remote MCP server (enterprise)
