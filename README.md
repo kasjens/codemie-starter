@@ -33,6 +33,46 @@ invisible CLIs.
 > your native Claude login — runs through the agent wrapper, i.e.
 > `codemie-claude`. See [Running tasks](#running-tasks).
 
+## Why CodeMie in an enterprise
+
+When AI coding agents go from one developer to a whole organization, the raw
+CLIs (`claude`, `gemini`, `codex`) create problems that only show up at scale.
+CodeMie exists to solve those:
+
+- **No visibility / auditability.** Individually-run agents leave no shared
+  record — no one can answer "what was the AI asked to do, by whom, against which
+  repo?" CodeMie can route conversations and usage to a central platform, giving
+  teams an audit trail and reviewable history for compliance and incident review.
+- **Uncontrolled cost.** Token spend across dozens of developers and three
+  different tools is invisible and un-attributable. Centralized usage analytics
+  turn that into per-user / per-team numbers you can actually budget and
+  chargeback against.
+- **Config & key sprawl.** Without a control plane, every developer wires up
+  their own API keys and endpoints for every tool. CodeMie centralizes the
+  provider/model choice (including routing through an enterprise gateway like
+  LiteLLM, Bedrock, or an SSO-backed endpoint) so secrets and model policy live
+  in one place, not scattered across laptops.
+- **Inconsistent, drifting toolchains.** "Works on my machine" applies to agents
+  too — mismatched CLI versions cause subtle behavior differences and support
+  pain. `codemie install <agent> --supported` and `codemie doctor` pin everyone
+  to a **known-good, tested set of versions**, which is exactly what this starter
+  automates.
+- **Model & provider governance.** Enterprises need to say "use *this* model,
+  through *this* approved provider." A single profile (`codemie setup`) lets an
+  org standardize which provider and model are used, rather than each person
+  picking their own.
+- **Fragmented onboarding.** Getting a new hire productive across Claude, Gemini,
+  and Codex is normally a multi-page wiki. One `./install.sh` + `codemie setup`
+  replaces that, which is the whole point of this repo.
+- **Fleet-wide extensions.** Spec-driven workflows (SpecKit), methodology
+  frameworks (BMAD), and shared code-intelligence graphs can be rolled out the
+  same way everywhere via `codemie install`, instead of each team improvising its
+  own setup. See [Extensions](#extensions-agents-frameworks--add-ons).
+
+In short: the individual CLIs make a **developer** productive; CodeMie makes an
+**organization** productive — with the governance, cost control, and auditability
+an enterprise needs around AI-assisted development.
+
 ## Quick install
 
 ```bash
