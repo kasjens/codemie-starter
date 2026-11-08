@@ -27,7 +27,11 @@ So the same server can back both agents. There are two ways to wire it.
 
 ---
 
-## Route A — point goose at the same server package (simplest)
+## Route A — point goose at the same server package (simplest) ✅ verified
+
+> **Verified on 2026-11-08** with CodeGraph 1.6.2, goose 1.53.0 (AAIF). goose
+> connected to the server and enumerated the tool as
+> `mcp__codegraph__codegraph_explore`.
 
 MCP is a standard, so goose can spawn the exact server CodeMie installs. Install
 it once via CodeMie (wires it into Claude / `codemie-claude`):
@@ -35,6 +39,10 @@ it once via CodeMie (wires it into Claude / `codemie-claude`):
 ```bash
 codemie install codegraph
 ```
+
+This puts `codegraph` on your PATH (`~/.local/bin/codegraph`). The MCP server is
+launched as **`codegraph serve --mcp`** (stdio) — confirmed via
+`codegraph install --print-config claude`, which every agent integration uses.
 
 Then add the **same** server to goose as a stdio extension. Edit
 `~/.config/goose/config.yaml` under the top-level `extensions:` map:
@@ -45,10 +53,10 @@ Then add the **same** server to goose as a stdio extension. Edit
     type: stdio
     name: codegraph
     description: Local-first code intelligence graph (shared with codemie-claude)
-    cmd: npx
+    cmd: codegraph
     args:
-    - -y
-    - '@colbymchenry/codegraph'   # TBD: real MCP subcommand, e.g. `... mcp` / `... serve`
+    - serve
+    - --mcp
     envs: {}
     env_keys: []
     timeout: 300
@@ -60,7 +68,14 @@ Then add the **same** server to goose as a stdio extension. Edit
 file — copy its shape if in doubt.) Or add it interactively with
 `goose configure` → *Add Extension* → *Command-line Extension*.
 
-**Result:** one on-disk index, queried by both agents.
+> If you prefer not to rely on CodeMie's global install, use
+> `cmd: npx` with `args: ['-y', '@colbymchenry/codegraph', 'serve', '--mcp']`.
+
+**Result:** one on-disk index, queried by both agents. goose exposes the tools
+namespaced as `mcp__codegraph__*`. The server is **per-directory** — it reads the
+`.codegraph/` index in goose's working directory, so run goose from a repo you've
+indexed with `codegraph init` (only `codegraph_explore` is exposed until an index
+exists).
 **Trade-off:** each agent spawns its *own* server process over that index.
 
 ---
@@ -135,28 +150,35 @@ map of your codebase). Install **one**; running several is redundant and just
 burns indexing time and context. CodeGraph is the simplest starting point for
 Route A; Codebase Memory adds the `codemie codebase ui` visualizer.
 
-## Unknowns to resolve
+## Resolved / remaining unknowns
 
-1. **CodeGraph's exact MCP command.** `@colbymchenry/codegraph` may need a
-   subcommand (`mcp` / `serve`) rather than a bare `npx -y @colbymchenry/codegraph`.
-   Verify with the package docs or by running
-   `npx -y @colbymchenry/codegraph --help`.
-2. **Route B is SSO-gated (resolved).** `codemie-mcp-proxy`'s managed MCP pulls a
-   server catalog from `${apiUrl}/v1/mcp/managed-servers` and is inert without an
+1. **CodeGraph's MCP command — resolved.** It is `codegraph serve --mcp` (stdio),
+   confirmed via `codegraph install --print-config <agent>`. Route A is verified
+   end-to-end (see the ✅ note above).
+2. **Route B is SSO-gated.** `codemie-mcp-proxy`'s managed MCP pulls a server
+   catalog from `${apiUrl}/v1/mcp/managed-servers` and is inert without an
    `ai-run-sso` login — so Route B can't be validated on an `anthropic-subscription`
    profile. What's still TBD per-org: the hosted server's URL and how goose should
    authenticate to it (bearer header / SSO cookie) when consuming it directly.
 
 ## Verifying it works
 
-After wiring either route, start goose and confirm the tools are present:
+Confirm the tool is present without spending much — ask goose to list its
+codegraph tools (headless, from an indexed repo):
 
 ```bash
-goose session        # then ask it to list available tools / use a codegraph tool
+goose run --no-session -t "List your tools whose names start with 'codegraph'. Then stop."
+# → mcp__codegraph__codegraph_explore
 ```
 
-If the extension failed to load, goose reports it at session start — check the
-`cmd`/`args` (Route A) or `uri`/auth (Route B).
+If the extension failed to load, goose logs it under
+`~/.local/state/goose/logs/cli/` (look for `extension_manager::stdio`).
+
+> ⚠️ **goose model gotcha (hit during verification).** If goose's provider is
+> `claude-acp` and its model is set to a bare alias like `opus`, every turn fails
+> with *"Invalid value for config option model: opus"* — before any tool runs.
+> Use a full/valid id (`sonnet`, `default`, or `claude-sonnet-4-6` worked). This
+> is a goose provider-config issue, unrelated to the codegraph extension itself.
 
 ## Complementary roles (why bother)
 
