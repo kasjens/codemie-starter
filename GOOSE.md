@@ -65,38 +65,66 @@ file — copy its shape if in doubt.) Or add it interactively with
 
 ---
 
-## Route B — share one instance via `codemie-mcp-proxy` (governed)
+## Route B — share a platform-governed remote MCP server (enterprise)
 
-Instead of each agent spawning its own server, let CodeMie front the MCP
-server(s) behind its proxy, and have goose point at that URL as a **remote**
-extension. Both agents then hit one running server through one managed, authable
-proxy — the right shape when you also run the `ai-run-sso` provider for
-centralized, SSO-governed access.
+> ⚠️ **This is not a local-fronting trick.** Inspecting the CLI
+> (`dist/cli/commands/proxy/connectors/managed-mcp-remote.js`) shows
+> `codemie-mcp-proxy`'s "managed MCP" is a **platform feature**, not a way to
+> expose a locally-installed stdio framework. It fetches a *centrally-curated
+> catalog* of **remote (URL/SSE) MCP servers** from the CodeMie / AI-Run SSO
+> backend and distributes them to your clients:
+>
+> ```js
+> const endpoint = new URL(`${creds.apiUrl}/v1/mcp/managed-servers`);
+> endpoint.searchParams.set('client', client);
+> if (!creds?.cookies || !creds.apiUrl) {
+>   logger.warn('[proxy] Managed MCP fetch skipped: no SSO credentials');
+>   return null;   // no SSO login → feature is simply inert
+> }
+> ```
 
-```bash
-codemie install codegraph                 # or codebase-memory / graphify
-codemie mcp add codegraph <server-url>     # register upstream via codemie-mcp-proxy
-codemie mcp list                           # confirm registration
-```
+So Route B is the **enterprise shape**, and it applies to *hosted* MCP servers,
+not a local `codemie install codegraph`:
 
-Then in goose, add a remote extension pointing at the proxy's endpoint
-(`goose configure` → *Add Extension* → *Remote Extension*), or in
-`~/.config/goose/config.yaml`:
+1. An **org admin hosts an MCP server at a URL** and publishes it in the CodeMie
+   platform's managed-servers catalog (an admin action against the AI-Run
+   platform, e.g. a `codemie.<org>` endpoint).
+2. Developers log in with the **`ai-run-sso` provider** (`codemie setup`). CodeMie
+   then **auto-distributes** that governed server to their clients — using the
+   [`mcp-remote`](https://www.npmjs.com/package/mcp-remote) bridge for stdio-only
+   clients.
+3. **goose points at the same hosted URL**, so both runtimes share one
+   centrally-governed, SSO-authed server. In `~/.config/goose/config.yaml`,
+   either natively:
 
-```yaml
-  codegraph_remote:
-    enabled: true
-    type: streamable_http          # or: sse
-    name: codegraph_remote
-    description: Shared code graph via codemie-mcp-proxy
-    uri: <proxy-url>               # TBD: codemie-mcp-proxy listen URL
-    envs: {}
-    timeout: 300
-```
+   ```yaml
+     shared_graph:
+       enabled: true
+       type: streamable_http        # or: sse
+       name: shared_graph
+       description: Org-governed MCP server (shared with codemie-claude)
+       uri: https://<org-hosted-mcp-url>
+       envs: {}
+       timeout: 300
+   ```
 
-**Result:** a single server instance behind one governed proxy, shared by both
-agents.
-**Gate:** requires confirming the proxy's own listen URL + auth (below).
+   or via the same `mcp-remote` stdio bridge CodeMie uses:
+
+   ```yaml
+     shared_graph:
+       enabled: true
+       type: stdio
+       name: shared_graph
+       cmd: npx
+       args: ['-y', 'mcp-remote', 'https://<org-hosted-mcp-url>']
+       timeout: 300
+   ```
+
+**Result:** one hosted, SSO-governed MCP server, consumed by both agents.
+**Prerequisites:** an `ai-run-sso` login **and** a published managed server —
+this is an org/admin capability, not a local setup. Without an SSO login the
+managed-MCP fetch is skipped entirely (returns `null`), so there is nothing for
+goose to share. For a purely local code graph on one machine, use **Route A**.
 
 ---
 
@@ -113,9 +141,11 @@ Route A; Codebase Memory adds the `codemie codebase ui` visualizer.
    subcommand (`mcp` / `serve`) rather than a bare `npx -y @colbymchenry/codegraph`.
    Verify with the package docs or by running
    `npx -y @colbymchenry/codegraph --help`.
-2. **`codemie-mcp-proxy` listen URL + auth (Route B).** `codemie mcp add` takes a
-   URL as an *upstream input*; confirm the proxy exposes a single aggregate
-   endpoint goose can reach, and how it authenticates, before relying on Route B.
+2. **Route B is SSO-gated (resolved).** `codemie-mcp-proxy`'s managed MCP pulls a
+   server catalog from `${apiUrl}/v1/mcp/managed-servers` and is inert without an
+   `ai-run-sso` login — so Route B can't be validated on an `anthropic-subscription`
+   profile. What's still TBD per-org: the hosted server's URL and how goose should
+   authenticate to it (bearer header / SSO cookie) when consuming it directly.
 
 ## Verifying it works
 
