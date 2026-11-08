@@ -65,11 +65,20 @@ else
 fi
 
 # --- bring supported agents up to minimum ----------------------------------
+# `codemie install` asks "Reinstall? (y/N)" when an upgrade is pending; feeding
+# it `y` keeps the run unattended. Agents already at the supported version skip
+# the prompt entirely, so the fed input is harmless.
+#
+# codemie-code is intentionally excluded: `--supported` reports "No supported
+# version defined in metadata", and installing it tries to create ~/.local/bin/
+# codemie, which collides with the CodeMie CLI binary. The CLI itself is already
+# kept current by the `npm install -g @codemieai/code@latest` step above.
 if [ "$SKIP_AGENTS" -eq 0 ]; then
   say "Upgrading supported agents to minimum versions"
-  for agent in claude gemini gemini-acp codex codemie-code; do
+  for agent in claude gemini gemini-acp codex; do
     say "install $agent --supported"
-    codemie install "$agent" --supported || warn "could not upgrade $agent (continuing)"
+    printf 'y\n' | codemie install "$agent" --supported \
+      || warn "could not upgrade $agent (continuing)"
   done
 else
   warn "Skipping agent upgrades (--no-agents)"

@@ -46,6 +46,15 @@ and installed agent versions. Common first-run findings:
 
 ## Notes
 
+- **Unattended by default.** When an agent upgrade is pending, `codemie install`
+  asks `Reinstall? (y/N)`; the script feeds it `y` so no manual input is needed.
+  Agents already at the supported version skip the prompt entirely.
+- **codemie-code is deliberately not auto-upgraded.** `codemie install
+  codemie-code --supported` fails with *"No supported version defined in
+  metadata"*, and installing it tries to create `~/.local/bin/codemie`, which
+  collides with the CodeMie CLI binary. The CLI itself is kept current by the
+  `npm install -g @codemieai/code@latest` step, so the health-check
+  "recommends vlatest" note for CodeMie Code can be safely ignored.
 - Upstream installer lives at
   `codemie-ai/codemie-code/main/install/macos/install.sh` — it also works on
   Linux despite the `macos` path. Override with `CODEMIE_INSTALL_URL` if that
