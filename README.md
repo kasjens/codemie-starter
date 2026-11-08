@@ -171,6 +171,10 @@ In `codemie doctor`, a `○` next to a framework means *not installed* — it is
 These give an agent a queryable map of your codebase — useful on large repos,
 overkill on small ones. Don't run more than one; they do the same job.
 
+> 💡 Because these are standard **MCP servers**, you can share one with
+> [goose](https://github.com/block/goose) so both `codemie-claude` and goose
+> query the same code graph. See [GOOSE.md](./GOOSE.md).
+
 ### Add-ons
 
 | Name | Install | What it is |
